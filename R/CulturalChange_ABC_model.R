@@ -1,19 +1,3 @@
-packages <- c("EasyABC")
-for (i in packages){
-  if(!require(i, character.only = T)){
-    install.packages(i, dependencies = T)
-    require(i, character.only = T)
-  }
-}
-
-library("EasyABC")
-
-
-######################################################################################################
-###################################  Model for ABC method  ###########################################
-######################################################################################################
-
-
 
 culturalChange_ABC_model<-function(theta, samples, timePoints, mutationRate, 
                      sMean, sVariance, alphaDirichlet, rMean = NULL, rVariance = NULL, popSize = NULL, n_step_for_sample)

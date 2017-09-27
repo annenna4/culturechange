@@ -1,15 +1,3 @@
-packages <- c("gtools", "Matrix", "plyr", "abctools")
-for (i in packages){
-  if(!require(i, character.only = TRUE)){
-    install.packages(i, dependencies = TRUE)
-    require(i, character.only = TRUE)
-  }
-}
-
-library("gtools")
-library("Matrix")
-library("plyr")
-library("abctools")
 
 generate_popSize<-function(sampleSize, nSamples, timePoints, sMean, sVariance)
 #Output: vector N of size (tn-t1+1) containing an estimate of the popualtion size at each 
