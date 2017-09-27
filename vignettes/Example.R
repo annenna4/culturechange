@@ -1,12 +1,15 @@
-remove (list=ls()) #clear workspace
-source("CulturalChange.R")
-source("culturalChange_ABC_model.R")
-source("PredictiveCheck.R")
-source("Input_inference.R")
+rm(list=ls()) #clear workspace
+
+library(devtools)
+devtools::install_github('annenna4/culturechange') # downloads package but doesn't load it yet
+
+library(culturechange)
 
 ############################
 # Model of cultural change #
 ############################
+
+source("./Input_inference.R")
 
 # tdata is a function of theta. 
 # tdata(theta) performs cultural change and returns the simulated samples at t2, t3...
