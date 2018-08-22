@@ -1,3 +1,20 @@
+#' @title Generate a Vector of Population Sizes
+#' @description
+#' @param sampleSize vector containing the total sample size for each chronological sampling block.
+#' @param nSamples number of chronological sampling block
+#' @param timePoints timestamp of each chronological sampling block. 
+#' @param sMean mean of the ratio \eqn{s} between sample size and population size. 
+#' @param sVariance variance of the ratio \eqn{s} between sample size and population size. 
+#' @return A vector containing the population size for each time-step.
+#' @examples
+#' generate_popSize(sampleSize=c(20,40,20),nSamples=3,timePoints=c(1,2,5),sMean=0.5,sVariance=0)
+#' @export
+
+
+# EC notes:
+# 1. Isn't nSamples just the length of sampleSize?
+# 2. Is a normal distribution the best distribution for the sample ratio s?
+# 3. Isn't sVariance actually the standard deviation?
 
 generate_popSize<-function(sampleSize, nSamples, timePoints, sMean, sVariance)
 #Output: vector N of size (tn-t1+1) containing an estimate of the popualtion size at each 
@@ -26,7 +43,19 @@ generate_popSize<-function(sampleSize, nSamples, timePoints, sMean, sVariance)
   return(N)
 }
 
-generate_initialPop<-function(iniSample, n_target_sim, alphaDirichlet)
+
+#' @title Generate a matrix with the relative frequecies of the variants present at t1
+#' @description The function 
+#' @param iniSample Initial frequencies of of the observed variants.
+#' @param n_target_sim Number of simulations. 
+#' @param alphaDirichlet Drichlet \eqn{\alpha} parameter.  
+#' @return A matrix with relative frequencies of each variant (column) across \code{n_target_sim} simulations (rows).
+#' @examples
+#' #generates two simulations for the frequency vector {10,5,3,2,1}/
+#' generate_initialPop(c(10,5,3,2,1),n_target_sim=2,alphaDirichlet = rep(1,5))
+#' @export
+
+generate_initialPop<-function(iniSample, n_target_sim, alphaDirichlet=1)
 #Output: Vector of size FIXME+1 containing relative frequencies of the variants present at
 #        t1 in the population (estimation independent of total population size)
 #Estimation is based on Dirichlet distribution
@@ -47,6 +76,31 @@ generate_initialPop<-function(iniSample, n_target_sim, alphaDirichlet)
   return(rdirichlet(n_target_sim,exponents))
 }
 
+
+
+#' @title Frequency-biased transmission model
+#' @description The function ...
+#' @param nType Number of cultural variants
+#' @param pop Observed frequencies of cultural variants
+#' @param b frequency bias parameter \eqn{b}
+#' @param mutationRate innovation rate.
+#' @return A matrix with relative frequencies of each variant (column) across \code{n_target_sim} simulations (rows).
+#' @examples
+#' #unbiased no mutation:
+#' generate_transmissionProb(nType = 6,pop=c(10,5,3,2,1,0),b=0,mutationRate=0)
+#' #unbiased with mutation of 0.01
+#' generate_transmissionProb(nType = 6,pop=c(10,5,3,2,1,0),b=0,mutationRate=0.01)
+#' #conformist bias
+#' generate_transmissionProb(nType = 6,pop=c(10,5,3,2,1,0),b=0.2,mutationRate=0.01)
+#' #anti-conformist bias
+#' generate_transmissionProb(nType = 6,pop=c(10,5,3,2,1,0),b=-0.2,mutationRate=0.01)
+#' @export
+
+# EC notes:
+# 1. Worth refactoring to homogenise?
+# 2. Isn't nType the length of pop?
+# 3. Does pop need to include at the end a 0 count place holder for any innovation?
+# 4. I assume this is the core structure that needs to be employed for any transmission model.
 
 generate_transmissionProb<-function(nType, pop, b, mutationRate)
 #Output: transmission probability under the assumption of frequency-dependent selection where the strength of selection 
@@ -76,6 +130,75 @@ generate_transmissionProb<-function(nType, pop, b, mutationRate)
 	  
 	  return(transProb)	
 }
+
+
+
+#' @title Computes the number of samples to be removed at each transition.
+#' @description
+#' @param popSize vector of population sizes
+#' @param timePoints timestamp of each chronological sampling block. 
+#' @param r population replacement rate
+#' @param nSamples number of chronological sampling blocks
+#' @examples 
+#' x = generate_popSize(sampleSize=c(20,40,20),nSamples=3,timePoints=c(1,2,10),sMean=0.5,sVariance=0)
+#' generate_removalReplacement(popSize=x, timePoints =c(1,2,10), nSamples=3, r=0.5) 
+#'
+#' @export
+
+# EC notes:
+# 1. because it's looking at transition the last element of both vectors is always 0?
+# 2. Not sure wht nSamples is needed? 
+# generate_removalReplacement(popSize=x, timePoints =c(1,2,10), nSamples=3, r=0.5) 
+# gives the same result as
+# generate_removalReplacement(popSize=x, timePoints =c(1,10), nSamples=2, r=0.5) 
+
+
+generate_removalReplacement <- function(popSize, timePoints, r, nSamples)
+#Output: number of variants to be removed (u) and added (v) to the population in each time step between t1 and tn
+{
+  u = rep(0,(timePoints[nSamples] - timePoints[1]) + 1)
+  v = rep(0,(timePoints[nSamples] - timePoints[1]) + 1)
+  for (j in 1:(nSamples - 1)){
+    n_step = timePoints[j+1] - timePoints[j] 
+    if (j==(nSamples-1)){
+      n_step = n_step 
+    }
+    for (i in 1:n_step) {
+      if (popSize[(timePoints[j] - timePoints[1]) + i] <= popSize[(timePoints[j] - timePoints[1]) + i + 1]) {
+        u[(timePoints[j] - timePoints[1]) + i] = floor(r * popSize[(timePoints[j] - timePoints[1]) + i])
+        v[(timePoints[j] - timePoints[1]) + i] = popSize[(timePoints[j] - timePoints[1]) + i + 1] - (popSize[(timePoints[j] - timePoints[1]) + i] - u[(timePoints[j] - timePoints[1]) + i])
+      } else{
+        u[(timePoints[j] - timePoints[1]) + i] = floor(r * popSize[(timePoints[j] - timePoints[1]) + i + 1]) + (popSize[(timePoints[j] - timePoints[1]) + i] - popSize[(timePoints[j] - timePoints[1]) + i + 1])
+        v[(timePoints[j] - timePoints[1]) + i] = popSize[(timePoints[j] - timePoints[1]) + i + 1] - (popSize[(timePoints[j] - timePoints[1]) + i] - u[(timePoints[j] - timePoints[1]) + i])
+      }
+    }
+  }
+
+  h = list(u,v)
+  return(h)
+}
+
+
+
+
+#' @title Ensemble model
+#' @description 
+#' @param iniPop observed initial raw frequencies of variants
+#' @param u number of variants to be removed at each transition (obtained from \code{generate_removalReplacement})
+#' @param v number of variants to be added at each transition (obtained from \code{generate_removalReplacement}) 
+#' @param b frequency bias parameter 
+#' @param mutationRate mutation rate 
+#' @param timePoints timestamp of each chronological sampling block. 
+#' @param nType number of variant types. 
+#' @param sampleSize vector containing the total sample size for each chronological sampling block.
+#' @param nSamples number of chronological sampling blocks 
+#' @param n_step_for_sample number of steps within each sampling block (models time-averaging) 
+#' @examples
+#  TODO! 
+#' @export
+
+
+
 
 generate_cultural_change<-function(iniPop, u, v, b, mutationRate, timePoints, nType, sampleSize, nSamples, n_step_for_sample)
 #Output: Population-level frequencies of variants present in iniPop at ti under transmission process 
@@ -149,30 +272,5 @@ generate_cultural_change<-function(iniPop, u, v, b, mutationRate, timePoints, nT
     theoSamples[xh:yh] = theoSamples[xh:yh] / sum(theoSamples[xh:yh])
     }
   return(theoSamples)
-}
-
-generate_removalReplacement <- function(popSize, timePoints, r, nSamples)
-#Output: number of variants to be removed (u) and added (v) to the population in each time step between t1 and tn
-{
-  u = rep(0,(timePoints[nSamples] - timePoints[1]) + 1)
-  v = rep(0,(timePoints[nSamples] - timePoints[1]) + 1)
-  for (j in 1:(nSamples - 1)){
-    n_step = timePoints[j+1] - timePoints[j] 
-    if (j==(nSamples-1)){
-      n_step = n_step 
-    }
-    for (i in 1:n_step) {
-      if (popSize[(timePoints[j] - timePoints[1]) + i] <= popSize[(timePoints[j] - timePoints[1]) + i + 1]) {
-        u[(timePoints[j] - timePoints[1]) + i] = floor(r * popSize[(timePoints[j] - timePoints[1]) + i])
-        v[(timePoints[j] - timePoints[1]) + i] = popSize[(timePoints[j] - timePoints[1]) + i + 1] - (popSize[(timePoints[j] - timePoints[1]) + i] - u[(timePoints[j] - timePoints[1]) + i])
-      } else{
-        u[(timePoints[j] - timePoints[1]) + i] = floor(r * popSize[(timePoints[j] - timePoints[1]) + i + 1]) + (popSize[(timePoints[j] - timePoints[1]) + i] - popSize[(timePoints[j] - timePoints[1]) + i + 1])
-        v[(timePoints[j] - timePoints[1]) + i] = popSize[(timePoints[j] - timePoints[1]) + i + 1] - (popSize[(timePoints[j] - timePoints[1]) + i] - u[(timePoints[j] - timePoints[1]) + i])
-      }
-    }
-  }
-
-  h = list(u,v)
-  return(h)
 }
 
